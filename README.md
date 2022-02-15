@@ -23,14 +23,18 @@ library(tsibble)
 
 # Data
 
-Evoenergy is the electricity and gas distributor in the ACT, which
-operates and maintains the ACT electricity and gas network. Under the
-National Electricity Rules, Evoenergy provides raw load data (in MVA) in
-half hourly intervals for all zone substations. We download and read
-data from the last 5 financial years (FY16/17 - FY20/21) for Theodore
-zone substation, which is located in south Tuggeranong between Theodore
-and Banks. Data are provided in “wide” CSV files, which we reshape from
-wide to long.
+[Evoenergy](https://www.evoenergy.com.au/) is the electricity and gas
+distributor in the ACT, which operates and maintains the ACT electricity
+and gas network. Under the National Electricity Rules, [Evoenergy
+provides raw load
+data](https://www.evoenergy.com.au/about-us/about-our-network/zone-substation-data)
+(in MVA) in half hourly intervals for all zone substations. We download
+and read data from the last 5 financial years (FY16/17 - FY20/21) for
+Theodore zone substation, which is [located in south Tuggeranong between
+Theodore and
+Banks](https://maps.google.com/?q=-35.45970921584446,149.11718976906894).
+Data are provided in “wide” CSV files, which we reshape from wide to
+long.
 
 ``` r
 base <- "https://www.evoenergy.com.au/-/media/evoenergy/about-us/zone-substation-data"
@@ -54,11 +58,12 @@ data <- url %>%
 ```
 
 We want to model (and forecast) *daily* maximum demand data, so we first
-determine the maximum load for every day of the last 5 (financial) years
-and store data in a new `tibble`. This is easily done by grouping
+determine the maximum load for every day during the last 5 (financial)
+years and store data in a new `tibble`. This is easily done by grouping
 entries by year, month and day, and keeping only the maximum value per
 group using `dplyr::slice_max`. We also add a date column, which is
-simply the date component of the timestamp.
+simply the date component of the timestamp and which we will use for
+plotting.
 
 ``` r
 # Maximum demand per month
@@ -90,7 +95,7 @@ data_max %>%
     theme_minimal()
 ```
 
-![](case_study_files/figure-gfm/plot-max-load-1.png)<!-- -->
+![](README_files/figure-gfm/plot-max-load-1.png)<!-- -->
 
 We can clearly make out some interesting (seasonal/periodical) patterns:
 Generally maximum demand is high during the winter months around July.
@@ -101,9 +106,9 @@ January, where maximum demand shows a sharp spike. This summer peak
 demand can be as high as the broader winter maximum, as was the case
 e.g. in FY19/20.
 
-We also note that there are some clear outliers in the data. These
-outliers can have undesired effects on estimating the overall trend;
-`prophet` can comfortably deal with missing data, and the [recommended
+We also note that there are some outliers in the data. These outliers
+can have undesired effects on estimating the overall trend; `prophet`
+can comfortably deal with missing data, and the [recommended
 way](https://facebook.github.io/prophet/docs/outliers.html) to deal with
 outliers within `prophet` is to remove them. A word of caution: Outlier
 removal can be a slippery slope, so care needs to be taken when removing
@@ -125,7 +130,7 @@ inference with *N* = 2000 samples to see uncertainties in the seasonal
 `daily.seasonality = FALSE`. We also allow the model to fit changepoints
 automatically, which we will inspect after fitting the model. By
 default, `prophet` considers 25 potential changepoints distributed
-uniformly across the first 80% f the time series. This may seem like a
+uniformly across the first 80% of the time series. This may seem like a
 lot, however an inspection of the rate of change will reveal that many
 of the changepoints have a small/negligible effect. This is because
 `prophet` uses a sparse prior, which has a regularising effect on the
@@ -165,7 +170,7 @@ values, input data, and the Stan fit results.
 We are now ready to forecast into the future. We want to show model fit
 components and forecasts in a single multi-panel plot. Do to this, we
 first define a custom function `patch` which stitches together the
-different fit components.
+different plot components.
 
 ``` r
 # Custom function to stitch together plots
@@ -214,9 +219,10 @@ forecast <- predict(m, future)
 patch(m, forecast)
 ```
 
-![](case_study_files/figure-gfm/forecast-1.png)<!-- -->
+![](README_files/figure-gfm/forecast-1.png)<!-- -->
 
-We can make some interesting observations from the model fit.
+We can make some interesting observations from the various model output
+plots.
 
 1.  **Weakly seasonality**: Maximum demand is highest at the beginning
     of the week, and decreases during the week before reaching its
@@ -234,5 +240,14 @@ We can make some interesting observations from the model fit.
     rates of change. The model estimates the biggest changes to the
     trend to occur in spring 2019 and autumn 2020. This can be seen in
     the trend component, which flattens between Spring 2019 and Autumn
-    2020, before continuing on a steeper downward trajectory.
-4.  
+    2020, before continuing on a steeper downward trajectory. Overall,
+    changes to the trend introduced through the changepoints are small.
+
+# Future work
+
+Obviously, this is a pretty simple model. As maximum demand is strongly
+driven by weather effects (primarily maximum and minimum temperatures in
+summer and winter, respectively), an improvement to the model would be
+to include temperature as an external regressor. Maximum demand
+forecasts then require temperature forecasts as an input. This is where
+things become interesting…

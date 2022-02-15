@@ -39,7 +39,7 @@ library(tsibble)
 
 # Data
 
-Evoenergy is the electricity and gas distributor in the ACT, which operates and maintains the ACT electricity and gas network. Under the National Electricity Rules, Evoenergy provides raw load data (in MVA) in half hourly intervals for all zone substations. We download and read data from the last 5 financial years (FY16/17 - FY20/21) for Theodore zone substation, which is located in south Tuggeranong between Theodore and Banks. Data are provided in "wide" CSV files, which we reshape from wide to long.
+[Evoenergy](https://www.evoenergy.com.au/) is the electricity and gas distributor in the ACT, which operates and maintains the ACT electricity and gas network. Under the National Electricity Rules, [Evoenergy provides raw load data](https://www.evoenergy.com.au/about-us/about-our-network/zone-substation-data) (in MVA) in half hourly intervals for all zone substations. We download and read data from the last 5 financial years (FY16/17 - FY20/21) for Theodore zone substation, which is [located in south Tuggeranong between Theodore and Banks](https://maps.google.com/?q=-35.45970921584446,149.11718976906894). Data are provided in "wide" CSV files, which we reshape from wide to long.
 
 ```{r read-data, warnings=FALSE, message=FALSE, cache=TRUE}
 base <- "https://www.evoenergy.com.au/-/media/evoenergy/about-us/zone-substation-data"
@@ -62,7 +62,7 @@ data <- url %>%
     mutate(timestamp = dmy_hm(timestamp))
 ```
 
-We want to model (and forecast) *daily* maximum demand data, so we first determine the maximum load for every day of the last 5 (financial) years and store data in a new `tibble`. This is easily done by grouping entries by year, month and day, and keeping only the maximum value per group using `dplyr::slice_max`. We also add a date column, which is simply the date component of the timestamp.
+We want to model (and forecast) *daily* maximum demand data, so we first determine the maximum load for every day during the last 5 (financial) years and store data in a new `tibble`. This is easily done by grouping entries by year, month and day, and keeping only the maximum value per group using `dplyr::slice_max`. We also add a date column, which is simply the date component of the timestamp and which we will use for plotting.
 
 ```{r max-load}
 # Maximum demand per month
@@ -96,7 +96,7 @@ data_max %>%
 
 We can clearly make out some interesting (seasonal/periodical) patterns: Generally maximum demand is high during the winter months around July. From September onwards, demand decreases and reaches a minimum during the summer period between November and March of the following year. This minimum is interrupted during the hottest summer month(s), often around January, where maximum demand shows a sharp spike. This summer peak demand can be as high as the broader winter maximum, as was the case e.g. in FY19/20.
 
-We also note that there are some clear outliers in the data. These outliers can have undesired effects on estimating the overall trend; `prophet` can comfortably deal with missing data, and the [recommended way](https://facebook.github.io/prophet/docs/outliers.html) to deal with outliers within `prophet` is to remove them. A word of caution: Outlier removal can be a slippery slope, so care needs to be taken when removing data.
+We also note that there are some outliers in the data. These outliers can have undesired effects on estimating the overall trend; `prophet` can comfortably deal with missing data, and the [recommended way](https://facebook.github.io/prophet/docs/outliers.html) to deal with outliers within `prophet` is to remove them. A word of caution: Outlier removal can be a slippery slope, so care needs to be taken when removing data.
 
 In this case, we take a conservative approach and remove the two data points with unrealistically low load in November 2016.
 
@@ -107,7 +107,7 @@ data_max <- data_max %>%
 
 # Fit model
 
-We are now ready to fit a `prophet` model. We want to do full Bayesian inference with $N = 2000$ samples to see uncertainties in the seasonal (yearly and monthly) model estimates. Since we have daily data, we set `daily.seasonality = FALSE`. We also allow the model to fit changepoints automatically, which we will inspect after fitting the model. By default, `prophet` considers 25 potential changepoints distributed uniformly across the first 80% f the time series. This may seem like a lot, however an inspection of the rate of change will reveal that many of the changepoints have a small/negligible effect. This is because `prophet` uses a sparse prior, which has a regularising effect on the changepoint coefficients. Lastly, we account for holiday effects by including ACT-specific holidays. 
+We are now ready to fit a `prophet` model. We want to do full Bayesian inference with $N = 2000$ samples to see uncertainties in the seasonal (yearly and monthly) model estimates. Since we have daily data, we set `daily.seasonality = FALSE`. We also allow the model to fit changepoints automatically, which we will inspect after fitting the model. By default, `prophet` considers 25 potential changepoints distributed uniformly across the first 80% of the time series. This may seem like a lot, however an inspection of the rate of change will reveal that many of the changepoints have a small/negligible effect. This is because `prophet` uses a sparse prior, which has a regularising effect on the changepoint coefficients. Lastly, we account for holiday effects by including ACT-specific holidays. 
 
 Fitting a fully Bayesian model takes considerably more time; in this case, expect a full model fit to take around 10-20 minutes. If this is too long, consider setting `n_samples = 0`. Also note that holiday data must be provided for both the past *and* the future, in order to ensure that future predictions account for holiday effects. In this case we want to forecast `n_future = 5` into the future.
 
@@ -133,7 +133,7 @@ The `prophet` output object is a simple `list`, which holds parameter values, in
 
 # Forecast
 
-We are now ready to forecast into the future. We want to show model fit components and forecasts in a single multi-panel plot. Do to this, we first define a custom function `patch` which stitches together the different fit components.
+We are now ready to forecast into the future. We want to show model fit components and forecasts in a single multi-panel plot. Do to this, we first define a custom function `patch` which stitches together the different plot components.
 
 ```{r custom-function}
 # Custom function to stitch together plots
@@ -181,9 +181,12 @@ forecast <- predict(m, future)
 patch(m, forecast)
 ```
 
-We can make some interesting observations from the model fit. 
+We can make some interesting observations from the various model output plots. 
 
 1. **Weakly seasonality**: Maximum demand is highest at the beginning of the week, and decreases during the week before reaching its minimum on Friday and Saturday. The load variation from this weekly effect is of the order of 1 MVA, which translates to around 5% of the typical load at Theodore ZSS.
 2. **Annual seasonality**: Maximum demand is highest in winter, with a broad maximum between May and September. Maximum demand is lowest during the summer months between November and March of the following year, with an increase in maximum demand during the hottest periods of the year in January/February. This is exactly the same pattern that we already discussed after inspecting the raw data. The variation in low and high maximum demand is of the order of 10 MVA.
-3. The model proposes a handful of changepoints, most with negligible rates of change. The model estimates the biggest changes to the trend to occur in spring 2019 and autumn 2020. This can be seen in the trend component, which flattens between Spring 2019 and Autumn 2020, before continuing on a steeper downward trajectory.
-3. 
+3. The model proposes a handful of changepoints, most with negligible rates of change. The model estimates the biggest changes to the trend to occur in spring 2019 and autumn 2020. This can be seen in the trend component, which flattens between Spring 2019 and Autumn 2020, before continuing on a steeper downward trajectory. Overall, changes to the trend introduced through the changepoints are small.
+
+# Future work
+
+Obviously, this is a pretty simple model. As maximum demand is strongly driven by weather effects (primarily maximum and minimum temperatures in summer and winter, respectively), an improvement to the model would be to include temperature as an external regressor. Maximum demand forecasts then require temperature forecasts as an input. This is where things become interesting...
