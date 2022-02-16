@@ -1,9 +1,32 @@
 # Introduction
 
-\[…\]
+[Prophet is a forecasting
+“procedure”](https://facebook.github.io/prophet/), with implementations
+in [R](https://facebook.github.io/prophet/docs/quick_start.html#r-api)
+and
+[Python](https://facebook.github.io/prophet/docs/quick_start.html#python-api).
+It is a “procedure” in the sense that it hides a lot of the technical
+details, and aims at auto-determining whether e.g. seasonalities and
+changepoints are present in the data. It also allows for fully Bayesian
+inference, making use of the fantastic [Stan](https://mc-stan.org/)
+statistical modelling platform. Prophet has an active community, with
+frequent updates and an [active issue
+tracker](https://github.com/facebook/prophet/issues) on GitHub.
 
--   Prophet
--   Maximum demand
+In this case study, we want to use the R package `prophet` for
+forecasting maximum electricity demand. Understanding and being able to
+forecast maximum electricity demand is important for identifying
+constraints in an electricity network. With distributed energy resources
+and behind-the-meter technology changing the landscape of traditional
+electricity demand, it is even more important to understand how maximum
+demand changes over time, in order for the energy distributor to be able
+to ensure overall network stability. Furthermore, under the National
+Electricity Rules, electricity network service providers are required to
+routinely provide maximum demand forecasts for their assets.
+
+This case study shows how easy it is to use `prophet` for (fully
+Bayesian) forecasting. This is not a comprehensive study, but serves as
+a starting point for more in-depth work.
 
 # Prerequisities
 
@@ -125,7 +148,7 @@ data_max <- data_max %>%
 # Fit model
 
 We are now ready to fit a `prophet` model. We want to do full Bayesian
-inference with *N* = 2000 samples to see uncertainties in the seasonal
+inference with *N* = 500 samples to see uncertainties in the seasonal
 (yearly and monthly) model estimates. Since we have daily data, we set
 `daily.seasonality = FALSE`. We also allow the model to fit changepoints
 automatically, which we will inspect after fitting the model. By
@@ -152,8 +175,8 @@ data_holiday <- data_max %>%
     modelr::seq_range(by = 1) %>%
     holiday_aus(state = "ACT") %>%
     rename(ds = date)
-#n_samples <- 2000      # Use this for slower MCMC sampling
-n_samples <- 0         # Use this for faster MAP estimates
+n_samples <- 500      # Use this for slower MCMC sampling
+#n_samples <- 0         # Use this for faster MAP estimates
 m <- data_max %>%
     select(ds = date, y = value) %>%
     prophet(
@@ -161,6 +184,14 @@ m <- data_max %>%
         holidays = data_holiday,
         daily.seasonality = FALSE)
 ```
+
+    ## Warning: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+    ## Running the chains for more iterations may help. See
+    ## http://mc-stan.org/misc/warnings.html#bulk-ess
+
+    ## Warning: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
+    ## Running the chains for more iterations may help. See
+    ## http://mc-stan.org/misc/warnings.html#tail-ess
 
 The `prophet` output object is a simple `list`, which holds parameter
 values, input data, and the Stan fit results.
