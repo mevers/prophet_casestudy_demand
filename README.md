@@ -1,9 +1,10 @@
 # Introduction
 
-[Prophet is a forecasting
-“procedure”](https://facebook.github.io/prophet/), with implementations
-in [R](https://facebook.github.io/prophet/docs/quick_start.html#r-api)
-and
+[“Prophet is a”procedure" for forecasting time series data based on an
+additive model where non-linear trends are fit with yearly, weekly, and
+daily seasonality, plus holiday
+effects"](https://facebook.github.io/prophet/), with implementations in
+[R](https://facebook.github.io/prophet/docs/quick_start.html#r-api) and
 [Python](https://facebook.github.io/prophet/docs/quick_start.html#python-api).
 It is a “procedure” in the sense that it hides a lot of the technical
 details, and aims at auto-determining whether e.g. seasonalities and
