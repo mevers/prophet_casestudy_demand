@@ -3,7 +3,8 @@ title: "Prophet for electricity demand forecasts"
 subtitle: "A case study"
 author: "Maurits Evers"
 output:
-    html_document:
+    html_document: 
+        keep_md: yes
         toc: false
     md_document:
         variant: gfm
